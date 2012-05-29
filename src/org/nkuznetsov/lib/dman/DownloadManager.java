@@ -135,12 +135,14 @@ public class DownloadManager
 			{
 				responseStream = response.getEntity().getContent();
 				long length = response.getEntity().getContentLength();
-				Log.d("123", String.valueOf(cache.getMaxNewCacheFileSize()));
 				if (responseCode == 200 && 
 						cacheTime > 0 && 
 						cache != null && 
 						cache.getMaxNewCacheFileSize() > length)
+				{
 					responseStream = cache.put(MD5.MD5Hash(requestURL), responseStream, cacheTime);
+					//if (responseStream == null) error durning caching
+				}
 			}
 		}
 		catch (Exception e) 
