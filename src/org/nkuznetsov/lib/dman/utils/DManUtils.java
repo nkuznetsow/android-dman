@@ -2,7 +2,7 @@ package org.nkuznetsov.lib.dman.utils;
 
 import java.io.File;
 
-public class Utils
+public class DManUtils
 {	
 	public static String getFileExtensionWithoutDot(File file)
 	{
