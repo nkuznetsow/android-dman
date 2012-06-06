@@ -16,14 +16,16 @@ import org.apache.http.entity.mime.content.InputStreamBody;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicHeader;
 import org.nkuznetsov.lib.cman.Cache;
-import org.nkuznetsov.lib.cman.utils.MD5;
-import org.nkuznetsov.lib.dman.utils.Utils;
+import org.nkuznetsov.lib.cman.utils.CManUtils;
+import org.nkuznetsov.lib.dman.utils.DManUtils;
 import android.content.Context;
 import android.util.Log;
 import android.webkit.MimeTypeMap;
 
 public class DownloadManager
 {
+	private static final int RETRIES = 3;
+	
 	private static Cache cache;
 	private Method method = Method.GET;
 	private String requestURL;
@@ -73,7 +75,7 @@ public class DownloadManager
 	public void addFile(String field, File file)
 	{
 		addMultipart(field, new FileBody(file, 
-				MimeTypeMap.getSingleton().getMimeTypeFromExtension(Utils.getFileExtensionWithoutDot(file))));
+				MimeTypeMap.getSingleton().getMimeTypeFromExtension(DManUtils.getFileExtensionWithoutDot(file))));
 	}
 	
 	/**
@@ -107,14 +109,18 @@ public class DownloadManager
 	public int execute(int cacheTime)
 	{	
 		if (multipartEntity != null) method = Method.POST;
+		String md5URL = CManUtils.MD5Hash(requestURL);
 		
-		if (cacheTime > 0 && method.equals(Method.GET) && cache != null)
+		if (cache != null && method.equals(Method.GET))
 		{
-			String md5URL = MD5.MD5Hash(requestURL);
 			if (cache.isCached(md5URL))
 			{
-				responseStream = cache.getStream(md5URL);
-				if (responseStream != null) return 0;
+				if (cacheTime > 0)
+				{
+					responseStream = cache.getStream(md5URL);
+					if (responseStream != null) return 0;
+				}
+				else cache.remove(md5URL);
 			}
 		}
 		
@@ -126,29 +132,34 @@ public class DownloadManager
 		if (multipartEntity != null) ((HttpPost)request).setEntity(multipartEntity);
 		if (httpHeaders != null) for (Header header : httpHeaders) request.addHeader(header);
 		
+		int retriesCount = RETRIES;
 		int responseCode = -1;
-		try
-		{
-			HttpResponse response = new DefaultHttpClient().execute(request);
-			responseCode = response.getStatusLine().getStatusCode();
-			if (response.getEntity() != null)
+		
+		while (retriesCount-- != 0)
+		{			
+			try
 			{
-				responseStream = response.getEntity().getContent();
-				long length = response.getEntity().getContentLength();
-				if (responseCode == 200 && 
-						cacheTime > 0 && 
-						cache != null && 
-						cache.getMaxNewCacheFileSize() > length)
+				HttpResponse response = new DefaultHttpClient().execute(request);
+				responseCode = response.getStatusLine().getStatusCode();
+				if (response.getEntity() != null)
 				{
-					responseStream = cache.put(MD5.MD5Hash(requestURL), responseStream, cacheTime);
-					//if (responseStream == null) error durning caching
+					responseStream = response.getEntity().getContent();
+					long length = response.getEntity().getContentLength();
+					if (responseCode == 200 && cacheTime > 0 && cache != null && 
+							cache.getMaxNewCacheFileSize() > length)
+					{
+						responseStream = cache.put(md5URL, responseStream, cacheTime);
+						if (responseStream == null) continue;
+						else break;
+					}
 				}
 			}
-		}
-		catch (Exception e) 
-		{
-			Log.e("DMAN", e.toString());
-			executeException = e;
+			catch (Exception e) 
+			{
+				Log.e("DMAN", e.toString());
+				executeException = e;
+				responseCode = -1;
+			}
 		}
 		return responseCode;
 	}
