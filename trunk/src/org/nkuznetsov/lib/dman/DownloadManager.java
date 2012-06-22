@@ -139,6 +139,7 @@ public class DownloadManager
 		{			
 			try
 			{
+				Log.d("DownloadManager: ", "execute(" + request.getURI() + ")");
 				HttpResponse response = new DefaultHttpClient().execute(request);
 				responseCode = response.getStatusLine().getStatusCode();
 				if (response.getEntity() != null)
@@ -150,9 +151,9 @@ public class DownloadManager
 					{
 						responseStream = cache.put(md5URL, responseStream, cacheTime);
 						if (responseStream == null) continue;
-						else break;
 					}
 				}
+				break;
 			}
 			catch (Exception e) 
 			{
