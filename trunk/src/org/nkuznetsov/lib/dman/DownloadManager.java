@@ -13,6 +13,7 @@ import org.apache.http.entity.mime.content.ByteArrayBody;
 import org.apache.http.entity.mime.content.ContentBody;
 import org.apache.http.entity.mime.content.FileBody;
 import org.apache.http.entity.mime.content.InputStreamBody;
+import org.apache.http.entity.mime.content.StringBody;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicHeader;
 import org.nkuznetsov.lib.cman.Cache;
@@ -98,6 +99,17 @@ public class DownloadManager
 	public void addInputStream(String field, InputStream in, String filename)
 	{
 		addMultipart(field, new InputStreamBody(in, filename));
+	}
+	
+	public void addString(String field, String value)
+	{
+		try
+		{
+			if (multipartEntity == null) multipartEntity = new MultipartEntity();
+			multipartEntity.addPart(field, new StringBody(value));
+			method = Method.POST;
+		}
+		catch (Exception e) { Log.e("DMAN", e.toString()); }
 	}
 	
 	public void addHeader(String name, String value)
