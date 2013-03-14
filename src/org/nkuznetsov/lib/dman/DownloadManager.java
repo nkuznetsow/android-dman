@@ -2,13 +2,17 @@ package org.nkuznetsov.lib.dman;
 
 import java.io.File;
 import java.io.InputStream;
-import java.util.Vector;
+import java.util.ArrayList;
+import java.util.zip.GZIPInputStream;
+
 import org.apache.http.Header;
+import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.conn.ClientConnectionManager;
 import org.apache.http.entity.mime.MultipartEntity;
 import org.apache.http.entity.mime.content.ByteArrayBody;
 import org.apache.http.entity.mime.content.ContentBody;
@@ -16,11 +20,16 @@ import org.apache.http.entity.mime.content.FileBody;
 import org.apache.http.entity.mime.content.InputStreamBody;
 import org.apache.http.entity.mime.content.StringBody;
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
 import org.apache.http.message.BasicHeader;
+import org.apache.http.params.HttpParams;
 import org.nkuznetsov.lib.cman.Cache;
 import org.nkuznetsov.lib.cman.utils.CManUtils;
 import org.nkuznetsov.lib.dman.utils.DManUtils;
+
 import android.content.Context;
+import android.net.http.AndroidHttpClient;
+import android.os.Build;
 import android.util.Log;
 import android.webkit.MimeTypeMap;
 
@@ -32,9 +41,11 @@ public class DownloadManager
 	private Method method = Method.GET;
 	private String requestURL;
 	private MultipartEntity multipartEntity;
-	private Vector<Header> httpHeaders;
+	private ArrayList<Header> httpHeaders = new ArrayList<Header>();
 	private Exception executeException;
 	private InputStream responseStream;
+	
+	private static HttpClient httpClient;
 	
 	public DownloadManager(String url)
 	{
@@ -115,13 +126,31 @@ public class DownloadManager
 	
 	public void addHeader(String name, String value)
 	{
-		if (httpHeaders == null) httpHeaders = new Vector<Header>();
 		httpHeaders.add(new BasicHeader(name, value));
+	}
+	
+	private static HttpClient getClient()
+	{
+		if (httpClient != null)
+            return httpClient;
+		
+		if (Build.VERSION.SDK_INT < 8)
+		{
+			httpClient = new DefaultHttpClient();
+			
+			ClientConnectionManager mgr = httpClient.getConnectionManager();
+			HttpParams params = httpClient.getParams();
+			httpClient = new DefaultHttpClient(new ThreadSafeClientConnManager(params, mgr.getSchemeRegistry()), params);
+		}
+		else httpClient = AndroidHttpClient.newInstance("Android " + Build.VERSION.SDK_INT);
+		
+		return httpClient;
 	}
 	
 	public int execute(int cacheTime)
 	{	
 		if (multipartEntity != null) method = Method.POST;
+		
 		String md5URL = CManUtils.MD5Hash(requestURL);
 		
 		if (cache != null && method.equals(Method.GET))
@@ -143,7 +172,10 @@ public class DownloadManager
 		else request = new HttpPost(requestURL);
 		
 		if (multipartEntity != null) ((HttpPost)request).setEntity(multipartEntity);
-		if (httpHeaders != null) for (Header header : httpHeaders) request.addHeader(header);
+		for (Header header : httpHeaders) request.addHeader(header);
+		
+		if (Build.VERSION.SDK_INT >= 8) AndroidHttpClient.modifyRequestToAcceptGzipResponse(request);
+		else request.addHeader("Accept-Encoding", "gzip");
 		
 		int retriesCount = RETRIES;
 		int responseCode = -1;
@@ -153,11 +185,20 @@ public class DownloadManager
 			try
 			{
 				Log.d("DownloadManager: ", "execute(" + request.getURI() + ")");
-				HttpResponse response = new DefaultHttpClient().execute(request);
+				HttpResponse response =   getClient().execute(request);
 				responseCode = response.getStatusLine().getStatusCode();
-				if (response.getEntity() != null)
+				HttpEntity responseEntity = response.getEntity();
+				if (responseEntity != null)
 				{
-					responseStream = response.getEntity().getContent();
+					if (Build.VERSION.SDK_INT < 8)
+					{
+						responseStream = responseEntity.getContent();
+						Header contentEncoding = response.getFirstHeader("Content-Encoding");
+						if (contentEncoding != null && "gzip".equalsIgnoreCase(contentEncoding.getValue()))
+							responseStream = new GZIPInputStream(responseStream);
+					}
+					else responseStream = AndroidHttpClient.getUngzippedContent(responseEntity);
+					
 					long length = response.getEntity().getContentLength();
 					if (responseCode == 200 && cacheTime > 0 && cache != null && 
 							cache.getMaxNewCacheFileSize() > length)
