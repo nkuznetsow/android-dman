@@ -8,6 +8,7 @@ import java.util.zip.GZIPInputStream;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
+import org.apache.http.HttpStatus;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
@@ -38,18 +39,24 @@ public class DownloadManager
 	private static final int RETRIES = 3;
 	
 	private static Cache cache;
+	private static HttpClient httpClient;
+	
 	private Method method = Method.GET;
-	private String requestURL;
+	private String requestURL, md5URL;
 	private MultipartEntity multipartEntity;
 	private ArrayList<Header> httpHeaders = new ArrayList<Header>();
 	private Exception executeException;
 	private InputStream responseStream;
-	
-	private static HttpClient httpClient;
+	private HttpUriRequest request;
+	private HttpResponse response;
+	private HttpEntity responseEntity;
+	private Header contentEncoding;
+	private long length;
 	
 	public DownloadManager(String url)
 	{
 		requestURL = url;
+		md5URL = CManUtils.MD5Hash(url);
 	}
 	
 	public DownloadManager(String url, Method method)
@@ -151,8 +158,6 @@ public class DownloadManager
 	{	
 		if (multipartEntity != null) method = Method.POST;
 		
-		String md5URL = CManUtils.MD5Hash(requestURL);
-		
 		if (cache != null && method.equals(Method.GET))
 		{
 			if (cache.isCached(md5URL))
@@ -165,8 +170,6 @@ public class DownloadManager
 				else cache.remove(md5URL);
 			}
 		}
-		
-		HttpUriRequest request;
 		
 		if (method.equals(Method.GET)) request = new HttpGet(requestURL);
 		else request = new HttpPost(requestURL);
@@ -185,22 +188,24 @@ public class DownloadManager
 			try
 			{
 				Log.d("DownloadManager: ", "execute(" + request.getURI() + ")");
-				HttpResponse response =   getClient().execute(request);
+				response = getClient().execute(request);
 				responseCode = response.getStatusLine().getStatusCode();
-				HttpEntity responseEntity = response.getEntity();
+				responseEntity = response.getEntity();
 				if (responseEntity != null)
 				{
 					if (Build.VERSION.SDK_INT < 8)
 					{
 						responseStream = responseEntity.getContent();
-						Header contentEncoding = response.getFirstHeader("Content-Encoding");
+						contentEncoding = response.getFirstHeader("Content-Encoding");
 						if (contentEncoding != null && "gzip".equalsIgnoreCase(contentEncoding.getValue()))
 							responseStream = new GZIPInputStream(responseStream);
 					}
 					else responseStream = AndroidHttpClient.getUngzippedContent(responseEntity);
 					
-					long length = response.getEntity().getContentLength();
-					if (responseCode == 200 && cacheTime > 0 && cache != null && 
+					length = response.getEntity().getContentLength();
+					if (responseCode == HttpStatus.SC_OK && 
+							cacheTime > 0 && 
+							cache != null && 
 							cache.getMaxNewCacheFileSize() > length)
 					{
 						responseStream = cache.put(md5URL, responseStream, cacheTime);
