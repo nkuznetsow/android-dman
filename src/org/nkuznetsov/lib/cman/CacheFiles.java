@@ -2,17 +2,18 @@ package org.nkuznetsov.lib.cman;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileFilter;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.Vector;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+
 import org.nkuznetsov.lib.cman.utils.CManUtils;
+
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -22,12 +23,12 @@ import android.os.StatFs;
 
 public class CacheFiles extends Cache
 {
-	private static final String CACHE_DIR = "CacheManager_f2/";
-	private static final String CACHE_REGEXP = "([0-9a-z]{30,33})_([0-9]{13,14})";
+	private static final String CACHE_DIR = "CacheManager_f3/";
+	private static final String CACHE_PREFFIX = "c_";
+	//private static final Pattern CACHE_PATTERN = Pattern.compile(CACHE_PREFFIX + "([0-9a-z]{30,33})_([0-9]{13,14})");
 	
 	private MountStateReceiver mountStateReceiver = new MountStateReceiver();
 	private HashMap<String, File> cacheList = new HashMap<String, File>();
-	private Pattern cachePattern = Pattern.compile(CACHE_REGEXP);
 	private File usedCachePath;
 	
 	public CacheFiles(Context context) 
@@ -39,25 +40,25 @@ public class CacheFiles extends Cache
 	}
 	
 	private void init()
-	{
-		Vector<File> cacheFiles = getCacheFiles();
-		
+	{	
 		synchronized (cacheList) 
 		{
 			cacheList.clear();
 			
-			for (File cacheFile : cacheFiles) 
+			String name;
+			int start, end;
+			
+			for (File cacheFile : getCacheFiles()) 
 			{
-				if (cacheFile.isFile())
+				if (!isExpired(cacheFile))
 				{
-					Matcher matcher = cachePattern.matcher(cacheFile.getName());
-					if (matcher.matches())
-					{
-						String key = matcher.group(1);
-						if (!isExpired(cacheFile)) cacheList.put(key, cacheFile.getAbsoluteFile());
-						else cacheFile.delete();
-					}
+					name = cacheFile.getName();
+					start = name.indexOf("_") + 1;
+					end = name.lastIndexOf("_");
+					if (start < end) 
+						cacheList.put(name.substring(start, end), cacheFile.getAbsoluteFile());
 				}
+				else cacheFile.delete();
 			}
 		}
 		
@@ -67,10 +68,10 @@ public class CacheFiles extends Cache
 		if (usedCachePath == null) throw new IllegalStateException("Cannot find any cache directory");
 	}
 	
-	private Vector<File> getCacheFiles()
+	private ArrayList<File> getCacheFiles()
 	{
-		Vector<File> cacheFiles = new Vector<File>();
-		Vector<File> avaliableCachePaths = new Vector<File>();
+		ArrayList<File> cacheFiles = new ArrayList<File>();
+		ArrayList<File> avaliableCachePaths = new ArrayList<File>();
 		avaliableCachePaths.add(getInternalCacheDirectory()); // internal cache
 		avaliableCachePaths.add(getExternalCacheDirectory()); // external cache
 		
@@ -78,12 +79,20 @@ public class CacheFiles extends Cache
 		{
 			if (cachPath != null)
 			{
-				File[] list = cachPath.listFiles();
+				File[] list = cachPath.listFiles(cahceFileFilter);
 				if (list != null) cacheFiles.addAll(Arrays.asList(list));
 			}
 		}
 		return cacheFiles;
 	}
+	
+	private FileFilter cahceFileFilter = new FileFilter()
+	{
+		public boolean accept(File file)
+		{
+			return file.getName().startsWith(CACHE_PREFFIX);
+		}
+	};
 	
 	private File getInternalCacheDirectory()
 	{
@@ -108,10 +117,11 @@ public class CacheFiles extends Cache
 	
 	private boolean isExpired(File file)
 	{
-		Matcher matcher = cachePattern.matcher(file.getName());
-		if (matcher.matches())
+		String name = file.getName();
+		int start = name.lastIndexOf("_") + 1;
+		if (start > 0)
 		{
-			long exp = Long.valueOf(matcher.group(2));
+			long exp = Long.valueOf(name.substring(start));
 			long now = new Date().getTime();
 			return exp <= now;
 		}
@@ -215,7 +225,7 @@ public class CacheFiles extends Cache
 	@Override
 	public InputStream put(String url, InputStream is, int expired) throws IOException
 	{
-		File outFile = new File(usedCachePath, url + "_" + String.valueOf(getExpiredTime(expired)));
+		File outFile = new File(usedCachePath, CACHE_PREFFIX + url + "_" + String.valueOf(getExpiredTime(expired)));
 		try
 		{
 			FileOutputStream os = new FileOutputStream(outFile);
