@@ -8,6 +8,8 @@ import java.security.NoSuchAlgorithmException;
 
 public class CManUtils
 {
+	private static final int bufferSize = 1024 * 8;
+	
 	/**
 	 * Calculation md5 hash of string
 	 * 
@@ -17,16 +19,18 @@ public class CManUtils
 	public static String MD5Hash(String s) 
     {
         MessageDigest alg = null;
-        StringBuffer hexString = new StringBuffer();
+        StringBuffer hexString = new StringBuffer(32);
         try 
         {
         	alg = MessageDigest.getInstance("MD5");
         	alg.update(s.getBytes());
         	
         	byte[] digest = alg.digest();
-        	for (int i = 0; i < digest.length; i++)
+        	int length = digest.length;
+        	String hex = null;
+        	for (int i = 0; i < length; i++)
         	{
-        		String hex = Integer.toHexString(0xFF & digest[i]);
+        		hex = Integer.toHexString(0xFF & digest[i]);
         		if (hex.length() == 1) hexString.append('0');
         		hexString.append(hex);
         	}
@@ -38,13 +42,12 @@ public class CManUtils
 	public static byte[] readBytes(InputStream inputStream) throws IOException 
 	{
 		ByteArrayOutputStream byteBuffer = new ByteArrayOutputStream();
-		int bufferSize = 1024*8;
+		
 		byte[] buffer = new byte[bufferSize];
-		int len = 0;
-		while ((len = inputStream.read(buffer)) != -1) 
-		{
-			byteBuffer.write(buffer, 0, len);
-		}
+		int readed = 0;
+		while ((readed = inputStream.read(buffer)) != -1) 
+			byteBuffer.write(buffer, 0, readed);
+		
 		return byteBuffer.toByteArray();
 	}
 }
