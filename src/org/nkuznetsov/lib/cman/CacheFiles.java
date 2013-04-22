@@ -28,7 +28,7 @@ public class CacheFiles extends Cache
 	//private static final Pattern CACHE_PATTERN = Pattern.compile(CACHE_PREFFIX + "([0-9a-z]{30,33})_([0-9]{13,14})");
 	
 	private MountStateReceiver mountStateReceiver = new MountStateReceiver();
-	private HashMap<String, File> cacheList = new HashMap<String, File>();
+	private HashMap<String, File> cacheList = new HashMap<String, File>(2048);
 	private File usedCachePath;
 	
 	public CacheFiles(Context context) 

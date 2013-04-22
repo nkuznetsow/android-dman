@@ -44,7 +44,7 @@ public class DownloadManager
 	private Method method = Method.GET;
 	private String requestURL, md5URL;
 	private MultipartEntity multipartEntity;
-	private ArrayList<Header> httpHeaders = new ArrayList<Header>();
+	private final ArrayList<Header> httpHeaders = new ArrayList<Header>();
 	private Exception executeException;
 	private InputStream responseStream;
 	private HttpUriRequest request;
@@ -149,7 +149,7 @@ public class DownloadManager
 			HttpParams params = httpClient.getParams();
 			httpClient = new DefaultHttpClient(new ThreadSafeClientConnManager(params, mgr.getSchemeRegistry()), params);
 		}
-		else httpClient = AndroidHttpClient.newInstance("Android " + Build.VERSION.SDK_INT);
+		else httpClient = AndroidHttpClient.newInstance("Android_" + Build.VERSION.SDK_INT);
 		
 		return httpClient;
 	}
@@ -178,7 +178,11 @@ public class DownloadManager
 		for (Header header : httpHeaders) request.addHeader(header);
 		
 		if (Build.VERSION.SDK_INT >= 8) AndroidHttpClient.modifyRequestToAcceptGzipResponse(request);
-		else request.addHeader("Accept-Encoding", "gzip");
+		else 
+		{
+			request.addHeader("Accept-Encoding", "gzip");
+			request.addHeader("User-Agent", "Android_" + Build.VERSION.SDK_INT);
+		}
 		
 		int retriesCount = RETRIES;
 		int responseCode = -1;
