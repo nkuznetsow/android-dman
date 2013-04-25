@@ -25,7 +25,6 @@ public class CacheFiles extends Cache
 {
 	private static final String CACHE_DIR = "CacheManager_f3/";
 	private static final String CACHE_PREFFIX = "c_";
-	//private static final Pattern CACHE_PATTERN = Pattern.compile(CACHE_PREFFIX + "([0-9a-z]{30,33})_([0-9]{13,14})");
 	
 	private MountStateReceiver mountStateReceiver = new MountStateReceiver();
 	private HashMap<String, File> cacheList = new HashMap<String, File>(2048);
@@ -70,10 +69,11 @@ public class CacheFiles extends Cache
 	
 	private ArrayList<File> getCacheFiles()
 	{
-		ArrayList<File> cacheFiles = new ArrayList<File>();
-		ArrayList<File> avaliableCachePaths = new ArrayList<File>();
-		avaliableCachePaths.add(getInternalCacheDirectory()); // internal cache
-		avaliableCachePaths.add(getExternalCacheDirectory()); // external cache
+		ArrayList<File> cacheFiles = new ArrayList<File>(2048);
+		
+		File[] avaliableCachePaths = new File[2];
+		avaliableCachePaths[0] = getInternalCacheDirectory();
+		avaliableCachePaths[1] = getExternalCacheDirectory();
 		
 		for (File cachPath : avaliableCachePaths) 
 		{
@@ -86,7 +86,7 @@ public class CacheFiles extends Cache
 		return cacheFiles;
 	}
 	
-	private FileFilter cahceFileFilter = new FileFilter()
+	private static final FileFilter cahceFileFilter = new FileFilter()
 	{
 		public boolean accept(File file)
 		{
