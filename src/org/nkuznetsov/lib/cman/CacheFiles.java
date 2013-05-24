@@ -14,27 +14,32 @@ import java.util.HashMap;
 
 import org.nkuznetsov.lib.cman.utils.CManUtils;
 
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.os.Environment;
 import android.os.StatFs;
 
-public class CacheFiles extends Cache
+public class CacheFiles extends Cache implements MountStateReceiverCallback
 {
 	private static final String CACHE_DIR = "CacheManager_f3/";
 	private static final String CACHE_PREFFIX = "c_";
 	
-	private MountStateReceiver mountStateReceiver = new MountStateReceiver();
+	private MountStateReceiver mountStateReceiver;
 	private HashMap<String, File> cacheList = new HashMap<String, File>(2048);
 	private File usedCachePath;
 	
 	public CacheFiles(Context context) 
 	{
 		super(context);
+		
+		mountStateReceiver = new MountStateReceiver(context, this);
 		mountStateReceiver.register();
 		
+		init();
+	}
+	
+	public void onMountStateChanged(Context context, Intent intent)
+	{
 		init();
 	}
 	
@@ -252,33 +257,5 @@ public class CacheFiles extends Cache
 	{
 		File file = cacheList.remove(url);
 		if (file != null) file.delete();
-	}
-	
-	private class MountStateReceiver extends BroadcastReceiver
-	{
-		private boolean registred = false;
-		
-		@Override
-		public void onReceive(Context context, Intent intent) 
-		{
-			init();
-		}
-		
-		public void register()
-		{
-			IntentFilter intentFilter = new IntentFilter();
-			intentFilter.addAction(Intent.ACTION_MEDIA_BAD_REMOVAL);
-			intentFilter.addAction(Intent.ACTION_MEDIA_EJECT);
-			intentFilter.addAction(Intent.ACTION_MEDIA_MOUNTED);
-			intentFilter.addAction(Intent.ACTION_MEDIA_REMOVED);
-			intentFilter.addDataScheme("file");
-			context.registerReceiver(this, intentFilter);
-			registred = true;
-		}
-		
-		public void unregister()
-		{
-			if (registred) context.unregisterReceiver(this);
-		}
 	}
 }
