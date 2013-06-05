@@ -156,11 +156,13 @@ public class CacheFiles extends Cache implements MountStateReceiverCallback
 	@Override
 	public boolean isCached(String url) 
 	{
+		String md5Url = CManUtils.MD5Hash(url);
+		
 		synchronized (cacheList)
 		{
-			if (cacheList.containsKey(url))
+			if (cacheList.containsKey(md5Url))
 			{
-				File file = cacheList.get(url);
+				File file = cacheList.get(md5Url);
 				if (file.exists() && !isExpired(file)) return true;
 				else remove(url);
 			}
@@ -203,7 +205,7 @@ public class CacheFiles extends Cache implements MountStateReceiverCallback
 	{
 		if (isCached(url))
 		{
-			File inFile = cacheList.get(url);
+			File inFile = cacheList.get(CManUtils.MD5Hash(url));
 			if (!isExpired(inFile))
 			{
 				try
@@ -230,7 +232,9 @@ public class CacheFiles extends Cache implements MountStateReceiverCallback
 	@Override
 	public InputStream put(String url, InputStream is, int expired) throws IOException
 	{
-		File outFile = new File(usedCachePath, CACHE_PREFFIX + url + "_" + String.valueOf(getExpiredTime(expired)));
+		String md5Url = CManUtils.MD5Hash(url);
+		
+		File outFile = new File(usedCachePath, CACHE_PREFFIX + md5Url + "_" + String.valueOf(getExpiredTime(expired)));
 		try
 		{
 			FileOutputStream os = new FileOutputStream(outFile);
@@ -242,7 +246,7 @@ public class CacheFiles extends Cache implements MountStateReceiverCallback
 			is.close();
 			synchronized (cacheList)
 			{
-				cacheList.put(url, outFile);
+				cacheList.put(md5Url, outFile);
 			}
 		}
 		catch (Exception e) 
@@ -255,7 +259,7 @@ public class CacheFiles extends Cache implements MountStateReceiverCallback
 	@Override
 	public void remove(String url)
 	{
-		File file = cacheList.remove(url);
+		File file = cacheList.remove(CManUtils.MD5Hash(url));
 		if (file != null) file.delete();
 	}
 }

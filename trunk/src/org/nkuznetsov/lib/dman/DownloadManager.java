@@ -3,17 +3,20 @@ package org.nkuznetsov.lib.dman;
 import java.io.File;
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.zip.GZIPInputStream;
+import java.util.List;
 
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
-import org.apache.http.client.HttpClient;
+import org.apache.http.HttpVersion;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpUriRequest;
-import org.apache.http.conn.ClientConnectionManager;
+import org.apache.http.conn.scheme.PlainSocketFactory;
+import org.apache.http.conn.scheme.Scheme;
+import org.apache.http.conn.scheme.SchemeRegistry;
+import org.apache.http.conn.ssl.SSLSocketFactory;
 import org.apache.http.entity.mime.MultipartEntity;
 import org.apache.http.entity.mime.content.ByteArrayBody;
 import org.apache.http.entity.mime.content.ContentBody;
@@ -23,13 +26,15 @@ import org.apache.http.entity.mime.content.StringBody;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
 import org.apache.http.message.BasicHeader;
+import org.apache.http.params.BasicHttpParams;
+import org.apache.http.params.CoreConnectionPNames;
+import org.apache.http.params.CoreProtocolPNames;
 import org.apache.http.params.HttpParams;
+import org.apache.http.protocol.HTTP;
 import org.nkuznetsov.lib.cman.Cache;
-import org.nkuznetsov.lib.cman.utils.CManUtils;
 import org.nkuznetsov.lib.dman.utils.DManUtils;
 
 import android.content.Context;
-import android.net.http.AndroidHttpClient;
 import android.os.Build;
 import android.util.Log;
 import android.webkit.MimeTypeMap;
@@ -39,24 +44,46 @@ public class DownloadManager
 	private static final int RETRIES = 3;
 	
 	private static Cache cache;
-	private static HttpClient httpClient;
+	private static final DefaultHttpClient httpClient;
+	
+	static
+	{
+		HttpParams params = new BasicHttpParams();
+		params.setParameter(CoreProtocolPNames.PROTOCOL_VERSION, HttpVersion.HTTP_1_1);
+		params.setParameter(CoreProtocolPNames.HTTP_CONTENT_CHARSET, HTTP.UTF_8);
+		params.setParameter(CoreProtocolPNames.USER_AGENT, "Android_" + Build.VERSION.SDK_INT);
+		params.setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, 15000);
+		params.setParameter(CoreConnectionPNames.STALE_CONNECTION_CHECK, false);
+		params.setParameter(CoreConnectionPNames.TCP_NODELAY, true);
+		
+		SchemeRegistry schemeRegistry = new SchemeRegistry();
+		schemeRegistry.register(new Scheme("http", PlainSocketFactory.getSocketFactory(), 80));
+		schemeRegistry.register(new Scheme("https", SSLSocketFactory.getSocketFactory(), 443));
+		
+		ThreadSafeClientConnManager mgr = new ThreadSafeClientConnManager(params, schemeRegistry);
+		
+		httpClient = new DefaultHttpClient(mgr, params);
+		
+		GZIPHeaderInterceptor gzipHeaderInterceptor = new GZIPHeaderInterceptor();
+		
+		httpClient.addResponseInterceptor(gzipHeaderInterceptor);
+		httpClient.addRequestInterceptor(gzipHeaderInterceptor);
+	}
 	
 	private Method method = Method.GET;
-	private String requestURL, md5URL;
+	private String requestURL;
 	private MultipartEntity multipartEntity;
-	private final ArrayList<Header> httpHeaders = new ArrayList<Header>();
+	private final List<Header> httpHeaders = new ArrayList<Header>();
 	private Exception executeException;
 	private InputStream responseStream;
 	private HttpUriRequest request;
 	private HttpResponse response;
 	private HttpEntity responseEntity;
-	private Header contentEncoding;
 	private long length;
 	
 	public DownloadManager(String url)
 	{
 		requestURL = url;
-		md5URL = CManUtils.MD5Hash(url);
 	}
 	
 	public DownloadManager(String url, Method method)
@@ -136,38 +163,20 @@ public class DownloadManager
 		httpHeaders.add(new BasicHeader(name, value));
 	}
 	
-	private static HttpClient getClient()
-	{
-		if (httpClient != null)
-            return httpClient;
-		
-		if (Build.VERSION.SDK_INT < 8)
-		{
-			httpClient = new DefaultHttpClient();
-			
-			ClientConnectionManager mgr = httpClient.getConnectionManager();
-			HttpParams params = httpClient.getParams();
-			httpClient = new DefaultHttpClient(new ThreadSafeClientConnManager(params, mgr.getSchemeRegistry()), params);
-		}
-		else httpClient = AndroidHttpClient.newInstance("Android_" + Build.VERSION.SDK_INT);
-		
-		return httpClient;
-	}
-	
 	public int execute(int cacheTime)
 	{	
 		if (multipartEntity != null) method = Method.POST;
 		
 		if (cache != null && method.equals(Method.GET))
 		{
-			if (cache.isCached(md5URL))
+			if (cache.isCached(requestURL))
 			{
 				if (cacheTime > 0)
 				{
-					responseStream = cache.getStream(md5URL);
+					responseStream = cache.getStream(requestURL);
 					if (responseStream != null) return 0;
 				}
-				else cache.remove(md5URL);
+				else cache.remove(requestURL);
 			}
 		}
 		
@@ -177,13 +186,6 @@ public class DownloadManager
 		if (multipartEntity != null) ((HttpPost)request).setEntity(multipartEntity);
 		for (Header header : httpHeaders) request.addHeader(header);
 		
-		if (Build.VERSION.SDK_INT >= 8) AndroidHttpClient.modifyRequestToAcceptGzipResponse(request);
-		else 
-		{
-			request.addHeader("Accept-Encoding", "gzip");
-			request.addHeader("User-Agent", "Android_" + Build.VERSION.SDK_INT);
-		}
-		
 		int retriesCount = RETRIES;
 		int responseCode = -1;
 		
@@ -192,19 +194,12 @@ public class DownloadManager
 			try
 			{
 				Log.d("DownloadManager: ", "execute(" + request.getURI() + ")");
-				response = getClient().execute(request);
+				response = httpClient.execute(request);
 				responseCode = response.getStatusLine().getStatusCode();
 				responseEntity = response.getEntity();
 				if (responseEntity != null)
 				{
-					if (Build.VERSION.SDK_INT < 8)
-					{
-						responseStream = responseEntity.getContent();
-						contentEncoding = response.getFirstHeader("Content-Encoding");
-						if (contentEncoding != null && "gzip".equalsIgnoreCase(contentEncoding.getValue()))
-							responseStream = new GZIPInputStream(responseStream);
-					}
-					else responseStream = AndroidHttpClient.getUngzippedContent(responseEntity);
+					responseStream = responseEntity.getContent();
 					
 					length = response.getEntity().getContentLength();
 					if (responseCode == HttpStatus.SC_OK && 
@@ -212,7 +207,7 @@ public class DownloadManager
 							cache != null && 
 							cache.getMaxNewCacheFileSize() > length)
 					{
-						responseStream = cache.put(md5URL, responseStream, cacheTime);
+						responseStream = cache.put(requestURL, responseStream, cacheTime);
 						if (responseStream == null) continue;
 					}
 				}

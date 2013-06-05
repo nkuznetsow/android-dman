@@ -38,7 +38,7 @@ public class CacheDatabase extends Cache
 		clearExpired();
 		int res = 0;
 		Cursor c = db.getWritableDatabase().rawQuery("SELECT COUNT(*) FROM `" + CacheTable.TABLE_NAME + 
-				"` WHERE `" + CacheTable.COLUMN_URL + "` = ?", new String[]{url});
+				"` WHERE `" + CacheTable.COLUMN_URL + "` = ?", new String[]{CManUtils.MD5Hash(url)});
 		if (c.moveToFirst()) res = c.getInt(0);
 		c.close();
 		return (res == 0) ? false : true;
@@ -72,7 +72,7 @@ public class CacheDatabase extends Cache
 		if (isCached(url))
 		{
 			Cursor c = db.getWritableDatabase().query(CacheTable.TABLE_NAME, new String[]{CacheTable.COLUMN_DATA}, 
-					CacheTable.COLUMN_URL + " = ?", new String[]{url}, null, null, null);
+					CacheTable.COLUMN_URL + " = ?", new String[]{CManUtils.MD5Hash(url)}, null, null, null);
 			if (c.moveToFirst()) bytes = c.getBlob(0);
 			c.close();
 		}
@@ -89,7 +89,7 @@ public class CacheDatabase extends Cache
 	public void put(String url, byte[] data, int expired) 
 	{
 		ContentValues values = new ContentValues();
-		values.put(CacheTable.COLUMN_URL, url);
+		values.put(CacheTable.COLUMN_URL, CManUtils.MD5Hash(url));
 		values.put(CacheTable.COLUMN_CACHEEXPIREDTIME, format.format(new Date(getExpiredTime(expired))));
 		values.put(CacheTable.COLUMN_DATA, data);
 		db.getWritableDatabase().insert(CacheTable.TABLE_NAME, null, values);
@@ -106,6 +106,6 @@ public class CacheDatabase extends Cache
 	@Override
 	public void remove(String url)
 	{
-		db.getWritableDatabase().delete(CacheTable.TABLE_NAME, CacheTable.COLUMN_URL + " = ", new String[]{url});
+		db.getWritableDatabase().delete(CacheTable.TABLE_NAME, CacheTable.COLUMN_URL + " = ", new String[]{CManUtils.MD5Hash(url)});
 	}
 }
