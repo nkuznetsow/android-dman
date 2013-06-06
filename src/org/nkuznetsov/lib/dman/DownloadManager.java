@@ -13,6 +13,8 @@ import org.apache.http.HttpVersion;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.conn.params.ConnManagerParams;
+import org.apache.http.conn.params.ConnPerRouteBean;
 import org.apache.http.conn.scheme.PlainSocketFactory;
 import org.apache.http.conn.scheme.Scheme;
 import org.apache.http.conn.scheme.SchemeRegistry;
@@ -59,6 +61,8 @@ public class DownloadManager
 		SchemeRegistry schemeRegistry = new SchemeRegistry();
 		schemeRegistry.register(new Scheme("http", PlainSocketFactory.getSocketFactory(), 80));
 		schemeRegistry.register(new Scheme("https", SSLSocketFactory.getSocketFactory(), 443));
+		
+		ConnManagerParams.setMaxConnectionsPerRoute(params, new ConnPerRouteBean(10));
 		
 		ThreadSafeClientConnManager mgr = new ThreadSafeClientConnManager(params, schemeRegistry);
 		
@@ -169,15 +173,12 @@ public class DownloadManager
 		
 		if (cache != null && method.equals(Method.GET))
 		{
-			if (cache.isCached(requestURL))
+			if (cacheTime > 0)
 			{
-				if (cacheTime > 0)
-				{
-					responseStream = cache.getStream(requestURL);
-					if (responseStream != null) return 0;
-				}
-				else cache.remove(requestURL);
+				responseStream = cache.getStream(requestURL);
+				if (responseStream != null) return 0;
 			}
+			else cache.remove(requestURL);
 		}
 		
 		if (method.equals(Method.GET)) request = new HttpGet(requestURL);

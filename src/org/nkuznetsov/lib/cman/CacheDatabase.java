@@ -66,8 +66,6 @@ public class CacheDatabase extends Cache
 	@Override
 	public byte[] get(String url) 
 	{
-		clearExpired();
-		
 		byte[] bytes = null;
 		if (isCached(url))
 		{

@@ -205,16 +205,11 @@ public class CacheFiles extends Cache implements MountStateReceiverCallback
 	{
 		if (isCached(url))
 		{
-			File inFile = cacheList.get(CManUtils.MD5Hash(url));
-			if (!isExpired(inFile))
+			try
 			{
-				try
-				{
-					return new FileInputStream(inFile);
-				} 
-				catch (Exception e) {}
-			}
-			else remove(url);
+				return new FileInputStream(cacheList.get(CManUtils.MD5Hash(url)));
+			} 
+			catch (Exception e) {}
 		}
 		return null;
 	}
