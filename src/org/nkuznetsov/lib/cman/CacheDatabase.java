@@ -80,7 +80,8 @@ public class CacheDatabase extends Cache
 	@Override
 	public InputStream getStream(String url)
 	{
-		return new ByteArrayInputStream(get(url));
+		byte[] bytes = get(url);
+		return bytes != null ? new ByteArrayInputStream(bytes) : null;
 	}
 
 	@Override
@@ -104,6 +105,6 @@ public class CacheDatabase extends Cache
 	@Override
 	public void remove(String url)
 	{
-		db.getWritableDatabase().delete(CacheTable.TABLE_NAME, CacheTable.COLUMN_URL + " = ", new String[]{CManUtils.MD5Hash(url)});
+		db.getWritableDatabase().delete(CacheTable.TABLE_NAME, CacheTable.COLUMN_URL + " = ?", new String[]{CManUtils.MD5Hash(url)});
 	}
 }

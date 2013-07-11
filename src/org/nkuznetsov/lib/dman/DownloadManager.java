@@ -62,7 +62,7 @@ public class DownloadManager
 		schemeRegistry.register(new Scheme("http", PlainSocketFactory.getSocketFactory(), 80));
 		schemeRegistry.register(new Scheme("https", SSLSocketFactory.getSocketFactory(), 443));
 		
-		ConnManagerParams.setMaxConnectionsPerRoute(params, new ConnPerRouteBean(10));
+		ConnManagerParams.setMaxConnectionsPerRoute(params, new ConnPerRouteBean(12));
 		
 		ThreadSafeClientConnManager mgr = new ThreadSafeClientConnManager(params, schemeRegistry);
 		
