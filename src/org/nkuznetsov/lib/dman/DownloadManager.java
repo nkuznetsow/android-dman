@@ -47,6 +47,7 @@ public class DownloadManager
 	
 	private static Cache cache;
 	private static final DefaultHttpClient httpClient;
+	private static boolean debug = true;
 	
 	static
 	{
@@ -194,7 +195,7 @@ public class DownloadManager
 		{			
 			try
 			{
-				Log.d("DownloadManager: ", "execute(" + request.getURI() + ")");
+				if (debug) Log.d("DMAN: ", "execute(" + request.getURI() + ")");
 				response = httpClient.execute(request);
 				responseCode = response.getStatusLine().getStatusCode();
 				responseEntity = response.getEntity();
@@ -259,6 +260,11 @@ public class DownloadManager
 	public static Cache getCache()
 	{
 		return cache;
+	}
+	
+	public static void setDebug(boolean debug)
+	{
+		DownloadManager.debug = debug;
 	}
 	
 	public static enum CacheType
