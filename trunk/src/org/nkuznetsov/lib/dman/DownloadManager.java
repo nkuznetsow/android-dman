@@ -55,15 +55,16 @@ public class DownloadManager
 		params.setParameter(CoreProtocolPNames.PROTOCOL_VERSION, HttpVersion.HTTP_1_1);
 		params.setParameter(CoreProtocolPNames.HTTP_CONTENT_CHARSET, HTTP.UTF_8);
 		params.setParameter(CoreProtocolPNames.USER_AGENT, "Android_" + Build.VERSION.SDK_INT);
+		params.setParameter(CoreConnectionPNames.SO_TIMEOUT, 15000);
 		params.setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, 15000);
 		params.setParameter(CoreConnectionPNames.STALE_CONNECTION_CHECK, false);
 		params.setParameter(CoreConnectionPNames.TCP_NODELAY, true);
+		params.setParameter(ConnManagerParams.MAX_CONNECTIONS_PER_ROUTE, new ConnPerRouteBean(5));
+		params.setParameter(ConnManagerParams.MAX_TOTAL_CONNECTIONS, 15);
 		
 		SchemeRegistry schemeRegistry = new SchemeRegistry();
 		schemeRegistry.register(new Scheme("http", PlainSocketFactory.getSocketFactory(), 80));
 		schemeRegistry.register(new Scheme("https", SSLSocketFactory.getSocketFactory(), 443));
-		
-		ConnManagerParams.setMaxConnectionsPerRoute(params, new ConnPerRouteBean(12));
 		
 		ThreadSafeClientConnManager mgr = new ThreadSafeClientConnManager(params, schemeRegistry);
 		
@@ -202,8 +203,9 @@ public class DownloadManager
 				if (responseEntity != null)
 				{
 					responseStream = responseEntity.getContent();
-					
+
 					length = response.getEntity().getContentLength();
+					
 					if (responseCode == HttpStatus.SC_OK && 
 							cacheTime > 0 && 
 							cache != null && 
@@ -213,6 +215,7 @@ public class DownloadManager
 						if (responseStream == null) continue;
 					}
 				}
+				
 				break;
 			}
 			catch (Exception e) 
@@ -222,6 +225,7 @@ public class DownloadManager
 				responseCode = -1;
 			}
 		}
+		
 		return responseCode;
 	}
 	
