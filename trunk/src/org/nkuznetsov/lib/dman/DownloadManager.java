@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
@@ -204,7 +205,7 @@ public class DownloadManager
 				{
 					responseStream = responseEntity.getContent();
 
-					length = response.getEntity().getContentLength();
+					length = responseEntity.getContentLength();
 					
 					if (responseCode == HttpStatus.SC_OK && 
 							cacheTime > 0 && 
@@ -229,17 +230,33 @@ public class DownloadManager
 		return responseCode;
 	}
 	
+	public long getLength()
+	{
+		return length;
+	}
+	
 	public static InputStream get(String url)
 	{
-		return get(url, 0);
+		return get(url, 0, null);
+	}
+	
+	public static InputStream get(String url, AtomicLong length)
+	{
+		return get(url, 0, length);
 	}
 	
 	public static InputStream get(String url, int cacheTime)
+	{
+		return get(url, cacheTime, null);
+	}
+	
+	public static InputStream get(String url, int cacheTime, AtomicLong length)
 	{
 		DownloadManager dm = new DownloadManager(url, Method.GET);
 		int code = dm.execute(cacheTime);
 		if (code == 0 || code == 200)
 		{
+			if (length != null) length.set(dm.getLength());
 			return dm.getResponseStream();
 		}
 		return null;
