@@ -7,6 +7,10 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
+import java.nio.channels.ReadableByteChannel;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -224,6 +228,7 @@ public class CacheFiles extends Cache implements MountStateReceiverCallback
 		catch (Exception e) {}
 	}
 	
+	@SuppressWarnings("resource")
 	@Override
 	public InputStream put(String url, InputStream is, int expired) throws IOException
 	{
@@ -232,13 +237,21 @@ public class CacheFiles extends Cache implements MountStateReceiverCallback
 		File outFile = new File(usedCachePath, CACHE_PREFFIX + md5Url + "_" + String.valueOf(getExpiredTime(expired)));
 		try
 		{
-			FileOutputStream os = new FileOutputStream(outFile);
-			byte[] buffer = new byte[1024 * 8];
-			int readed = 0;
-			while ((readed = is.read(buffer)) != -1) os.write(buffer, 0, readed);
-			os.flush();
-			os.close();
-			is.close();
+			ReadableByteChannel ich = Channels.newChannel(is);
+			FileChannel och = new FileOutputStream(outFile).getChannel();
+			
+			ByteBuffer buffer = ByteBuffer.allocateDirect(1024 * 8);
+			
+			while(ich.read(buffer) > -1 || buffer.position() > 0)
+			{
+				buffer.flip();
+				och.write(buffer);
+				buffer.compact();
+			}
+
+			ich.close();
+			och.close();
+			
 			synchronized (cacheList)
 			{
 				cacheList.put(md5Url, outFile);

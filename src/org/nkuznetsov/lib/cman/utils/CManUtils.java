@@ -3,8 +3,11 @@ package org.nkuznetsov.lib.cman.utils;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.WritableByteChannel;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 
 import android.util.SparseArray;
 
@@ -13,6 +16,8 @@ public class CManUtils
 	private static final int bufferSize = 1024 * 8;
 	
 	private static final SparseArray<String> md5Cache = new SparseArray<String>();
+	
+	private static MessageDigest MD5 = null;
 	
 	/**
 	 * Calculation md5 hash of string
@@ -28,26 +33,20 @@ public class CManUtils
 		
 		if (result != null) return result;
 		
-		MessageDigest alg = null;
-        StringBuffer hexString = new StringBuffer(32);
         try 
         {
-        	alg = MessageDigest.getInstance("MD5");
+        	if (MD5 == null) MD5 = MessageDigest.getInstance("MD5");
+        	
+        	MessageDigest alg = (MessageDigest) MD5.clone();
         	alg.update(s.getBytes());
         	
-        	byte[] digest = alg.digest();
-        	int length = digest.length;
-        	String hex = null;
-        	for (int i = 0; i < length; i++)
-        	{
-        		hex = Integer.toHexString(0xFF & digest[i]);
-        		if (hex.length() == 1) hexString.append('0');
-        		hexString.append(hex);
-        	}
+        	StringBuffer hexString = new StringBuffer(32);
+        	
+        	for (byte b : alg.digest()) hexString.append(intToHexChars(0xFF & b));
         	
         	result = hexString.toString();
         }
-        catch (NoSuchAlgorithmException e) {}
+        catch (Exception e) {}
         
         if (result == null) result = String.valueOf(s.hashCode());
         md5Cache.put(sHash, result);
@@ -55,14 +54,41 @@ public class CManUtils
         return result;
     }
 	
-	public static byte[] readBytes(InputStream inputStream) throws IOException 
+	private static char toHexChar(int i) 
+	{
+		i &= 15;
+		return (i < 10) ? (char)(i + 48) : (char)(i + 87); 
+	}
+
+	private static char[] intToHexChars(int n) 
+	{
+		char[] chars = new char[2];
+		for (int i = 0; i < 2; i++) 
+		{
+			chars[1 - i] = toHexChar(n);
+			n >>= 4;
+		}
+		return chars;
+	}
+	
+	public static byte[] readBytes(InputStream is) throws IOException 
 	{
 		ByteArrayOutputStream byteBuffer = new ByteArrayOutputStream();
 		
-		byte[] buffer = new byte[bufferSize];
-		int readed = 0;
-		while ((readed = inputStream.read(buffer)) != -1) 
-			byteBuffer.write(buffer, 0, readed);
+		ReadableByteChannel ich = Channels.newChannel(is);
+		WritableByteChannel och = Channels.newChannel(byteBuffer);
+		
+		ByteBuffer buffer = ByteBuffer.allocateDirect(bufferSize);
+		
+		while (ich.read(buffer) > -1 || buffer.position() > 0)
+		{
+			buffer.flip();
+			och.write(buffer);
+			buffer.compact();
+		}
+		
+		ich.close();
+		och.close();
 		
 		return byteBuffer.toByteArray();
 	}
