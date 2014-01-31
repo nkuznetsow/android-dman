@@ -130,7 +130,12 @@ public class CacheFiles extends Cache implements MountStateReceiverCallback
 		int start = name.lastIndexOf("_") + 1;
 		if (start > 0)
 		{
-			long exp = Long.valueOf(name.substring(start));
+			long exp = 0;
+			try
+			{
+				exp = Long.valueOf(name.substring(start));
+			}
+			catch (Exception e) {}
 			long now = new Date().getTime();
 			return exp <= now;
 		}
