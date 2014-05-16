@@ -3,6 +3,8 @@ package org.nkuznetsov.lib.dman;
 import java.io.File;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -11,6 +13,7 @@ import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.HttpVersion;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpUriRequest;
@@ -29,6 +32,7 @@ import org.apache.http.entity.mime.content.StringBody;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
 import org.apache.http.message.BasicHeader;
+import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.params.BasicHttpParams;
 import org.apache.http.params.CoreConnectionPNames;
 import org.apache.http.params.CoreProtocolPNames;
@@ -79,7 +83,9 @@ public class DownloadManager
 	
 	private Method method = Method.GET;
 	private String requestURL;
-	private MultipartEntity multipartEntity;
+	private ArrayList<BasicNameValuePair> postStrings = new ArrayList<BasicNameValuePair>();
+	private HashMap<String, ContentBody> postMultipart = new HashMap<String, ContentBody>();
+	private HttpEntity postEntity;
 	private final List<Header> httpHeaders = new ArrayList<Header>();
 	private Exception executeException;
 	private InputStream responseStream;
@@ -116,9 +122,7 @@ public class DownloadManager
 	
 	private void addMultipart(String field, ContentBody body)
 	{
-		if (multipartEntity == null) multipartEntity = new MultipartEntity();
-		multipartEntity.addPart(field, body);
-		method = Method.POST;
+		postMultipart.put(field, body);
 	}
 	
 	/**
@@ -156,13 +160,7 @@ public class DownloadManager
 	
 	public void addString(String field, String value)
 	{
-		try
-		{
-			if (multipartEntity == null) multipartEntity = new MultipartEntity();
-			multipartEntity.addPart(field, new StringBody(value));
-			method = Method.POST;
-		}
-		catch (Exception e) { Log.e("DMAN", e.toString()); }
+		postStrings.add(new BasicNameValuePair(field, value));
 	}
 	
 	public void addHeader(String name, String value)
@@ -171,8 +169,39 @@ public class DownloadManager
 	}
 	
 	public int execute(int cacheTime)
-	{	
-		if (multipartEntity != null) method = Method.POST;
+	{
+		if (postMultipart.size() > 0)
+		{
+			MultipartEntity entity = new MultipartEntity();
+			
+			for (Iterator<String> keys = postMultipart.keySet().iterator(); keys.hasNext();)
+			{
+				String key = keys.next();
+				entity.addPart(key, postMultipart.get(key));
+			}
+
+			for (BasicNameValuePair pair : postStrings)
+			{
+				try
+				{
+					entity.addPart(pair.getName(), new StringBody(pair.getValue()));
+				}
+				catch (Exception e) {}
+			}
+			
+			postEntity = entity;
+		}
+		else if (postStrings.size() > 0)
+		{
+			try
+			{
+				UrlEncodedFormEntity entity = new UrlEncodedFormEntity(postStrings);
+				postEntity = entity;
+			}
+			catch (Exception e) {}
+		}
+		
+		if (postEntity != null) method = Method.POST;
 		
 		if (cache != null && method.equals(Method.GET))
 		{
@@ -187,7 +216,7 @@ public class DownloadManager
 		if (method.equals(Method.GET)) request = new HttpGet(requestURL);
 		else request = new HttpPost(requestURL);
 		
-		if (multipartEntity != null) ((HttpPost)request).setEntity(multipartEntity);
+		if (postEntity != null) ((HttpPost)request).setEntity(postEntity);
 		for (Header header : httpHeaders) request.addHeader(header);
 		
 		int retriesCount = RETRIES;
