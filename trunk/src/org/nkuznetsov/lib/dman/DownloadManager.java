@@ -195,7 +195,7 @@ public class DownloadManager
 		{
 			try
 			{
-				UrlEncodedFormEntity entity = new UrlEncodedFormEntity(postStrings);
+				UrlEncodedFormEntity entity = new UrlEncodedFormEntity(postStrings, "UTF-8");
 				postEntity = entity;
 			}
 			catch (Exception e) {}
