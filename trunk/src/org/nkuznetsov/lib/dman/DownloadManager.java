@@ -2,6 +2,7 @@ package org.nkuznetsov.lib.dman;
 
 import java.io.File;
 import java.io.InputStream;
+import java.security.KeyStore;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -315,6 +316,27 @@ public class DownloadManager
 	public static void setDebug(boolean debug)
 	{
 		DownloadManager.debug = debug;
+	}
+	
+	public static void acceptAllSertificates(boolean accept)
+	{
+		if (httpClient == null) return;
+		if (httpClient.getConnectionManager() == null) return;
+		if (httpClient.getConnectionManager().getSchemeRegistry() == null) return;
+		Scheme scheme = httpClient.getConnectionManager().getSchemeRegistry().get("https");
+		if (accept && !(scheme.getSocketFactory() instanceof AcceptAllSSLSocketFactory)) 
+		{
+			try
+			{
+				KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
+				trustStore.load(null, null);
+				SSLSocketFactory sf = new AcceptAllSSLSocketFactory(trustStore);
+		        sf.setHostnameVerifier(SSLSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);
+		        httpClient.getConnectionManager().getSchemeRegistry().register(new Scheme("https", sf, 443));
+			}
+			catch (Exception e) {}
+		}
+		if (!accept && !(scheme.getSocketFactory() instanceof SSLSocketFactory)) httpClient.getConnectionManager().getSchemeRegistry().register(new Scheme("https", SSLSocketFactory.getSocketFactory(), 443));
 	}
 	
 	public static enum CacheType
