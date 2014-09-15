@@ -2,6 +2,7 @@ package org.nkuznetsov.lib.dman;
 
 import java.io.File;
 import java.io.InputStream;
+import java.nio.charset.Charset;
 import java.security.KeyStore;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -24,6 +25,7 @@ import org.apache.http.conn.scheme.PlainSocketFactory;
 import org.apache.http.conn.scheme.Scheme;
 import org.apache.http.conn.scheme.SchemeRegistry;
 import org.apache.http.conn.ssl.SSLSocketFactory;
+import org.apache.http.entity.mime.HttpMultipartMode;
 import org.apache.http.entity.mime.MultipartEntity;
 import org.apache.http.entity.mime.content.ByteArrayBody;
 import org.apache.http.entity.mime.content.ContentBody;
@@ -54,6 +56,7 @@ public class DownloadManager
 	private static Cache cache;
 	private static final DefaultHttpClient httpClient;
 	private static boolean debug = true;
+	private static String boundary = "------AndroidDeviceshjgjas";
 	
 	static
 	{
@@ -86,7 +89,6 @@ public class DownloadManager
 	private String requestURL;
 	private ArrayList<BasicNameValuePair> postStrings = new ArrayList<BasicNameValuePair>();
 	private HashMap<String, ContentBody> postMultipart = new HashMap<String, ContentBody>();
-	private HttpEntity postEntity;
 	private final List<Header> httpHeaders = new ArrayList<Header>();
 	private Exception executeException;
 	private InputStream responseStream;
@@ -171,53 +173,61 @@ public class DownloadManager
 	
 	public int execute(int cacheTime)
 	{
-		if (postMultipart.size() > 0)
+		if (postMultipart.size() > 0 || postStrings.size() > 0) method = Method.POST;
+		
+		if (method == Method.GET)
 		{
-			MultipartEntity entity = new MultipartEntity();
-			
-			for (Iterator<String> keys = postMultipart.keySet().iterator(); keys.hasNext();)
+			if (cache != null)
 			{
-				String key = keys.next();
-				entity.addPart(key, postMultipart.get(key));
+				if (cacheTime > 0)
+				{
+					responseStream = cache.getStream(requestURL);
+					if (responseStream != null) return 0;
+				}
+				else cache.remove(requestURL);
 			}
+			
+			request = new HttpGet(requestURL);
+		}
+		else 
+		{
+			request = new HttpPost(requestURL);
+		
+			HttpPost postRequest = (HttpPost) request;
+		
+			if (postMultipart.size() > 0)
+			{
+				MultipartEntity entity = new MultipartEntity(HttpMultipartMode.BROWSER_COMPATIBLE, boundary, Charset.forName("UTF-8"));
+				
+				for (BasicNameValuePair pair : postStrings)
+				{
+					try
+					{
+						entity.addPart(pair.getName(), new StringBody(pair.getValue()));
+					}
+					catch (Exception e) {}
+				}
+				
+				for (Iterator<String> keys = postMultipart.keySet().iterator(); keys.hasNext();)
+				{
+					String key = keys.next();
+					entity.addPart(key, postMultipart.get(key));
+				}
 
-			for (BasicNameValuePair pair : postStrings)
+				postRequest.setEntity(entity);
+				postRequest.addHeader("Content-Type", "multipart/form-data; boundary=" + boundary);
+			}
+			else if (postStrings.size() > 0)
 			{
 				try
 				{
-					entity.addPart(pair.getName(), new StringBody(pair.getValue()));
+					postRequest.setEntity(new UrlEncodedFormEntity(postStrings, "UTF-8"));
+					postRequest.addHeader("Content-Type", "application/x-www-form-urlencoded");
 				}
 				catch (Exception e) {}
 			}
-			
-			postEntity = entity;
-		}
-		else if (postStrings.size() > 0)
-		{
-			try
-			{
-				UrlEncodedFormEntity entity = new UrlEncodedFormEntity(postStrings, "UTF-8");
-				postEntity = entity;
-			}
-			catch (Exception e) {}
 		}
 		
-		if (postEntity != null) method = Method.POST;
-		
-		if (cache != null && method.equals(Method.GET))
-		{
-			if (cacheTime > 0)
-			{
-				responseStream = cache.getStream(requestURL);
-				if (responseStream != null) return 0;
-			}
-			else cache.remove(requestURL);
-		}
-		
-		if (method.equals(Method.GET)) request = new HttpGet(requestURL);
-		else request = new HttpPost(requestURL);
-		
-		if (postEntity != null) ((HttpPost)request).setEntity(postEntity);
 		for (Header header : httpHeaders) request.addHeader(header);
 		
 		int retriesCount = RETRIES;
