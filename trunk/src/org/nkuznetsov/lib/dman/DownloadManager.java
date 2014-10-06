@@ -55,7 +55,7 @@ public class DownloadManager
 	
 	private static Cache cache;
 	private static final DefaultHttpClient httpClient;
-	private static boolean debug = true;
+	private static boolean debug = false;
 	private static String boundary = "------AndroidDeviceshjgjas";
 	
 	static
@@ -173,6 +173,8 @@ public class DownloadManager
 	
 	public int execute(int cacheTime)
 	{
+		ArrayList<BasicNameValuePair> postLogs = new ArrayList<BasicNameValuePair>();
+		
 		if (postMultipart.size() > 0 || postStrings.size() > 0) method = Method.POST;
 		
 		if (method == Method.GET)
@@ -201,6 +203,8 @@ public class DownloadManager
 				
 				for (BasicNameValuePair pair : postStrings)
 				{
+					postLogs.add(pair);
+					
 					try
 					{
 						entity.addPart(pair.getName(), new StringBody(pair.getValue()));
@@ -211,6 +215,7 @@ public class DownloadManager
 				for (Iterator<String> keys = postMultipart.keySet().iterator(); keys.hasNext();)
 				{
 					String key = keys.next();
+					postLogs.add(new BasicNameValuePair(key, postMultipart.get(key).toString()));
 					entity.addPart(key, postMultipart.get(key));
 				}
 
@@ -219,6 +224,8 @@ public class DownloadManager
 			}
 			else if (postStrings.size() > 0)
 			{
+				postLogs.addAll(postStrings);
+				
 				try
 				{
 					postRequest.setEntity(new UrlEncodedFormEntity(postStrings, "UTF-8"));
@@ -237,7 +244,7 @@ public class DownloadManager
 		{			
 			try
 			{
-				if (debug) Log.d("DMAN: ", "execute(" + request.getURI() + ")");
+				if (debug) Log.d(method.name(), "" + request.getURI() + (postLogs.size() > 0 ? (" params: " + postLogs) : ""));
 				response = httpClient.execute(request);
 				responseCode = response.getStatusLine().getStatusCode();
 				responseEntity = response.getEntity();
