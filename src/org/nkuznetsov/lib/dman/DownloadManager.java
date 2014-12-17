@@ -16,8 +16,10 @@ import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.HttpVersion;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
+import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.conn.params.ConnManagerParams;
 import org.apache.http.conn.params.ConnPerRouteBean;
@@ -86,6 +88,7 @@ public class DownloadManager
 	}
 	
 	private Method method = Method.GET;
+	private Method forceMethod;
 	private String requestURL;
 	private ArrayList<BasicNameValuePair> postStrings = new ArrayList<BasicNameValuePair>();
 	private HashMap<String, ContentBody> postMultipart = new HashMap<String, ContentBody>();
@@ -166,6 +169,15 @@ public class DownloadManager
 		postStrings.add(new BasicNameValuePair(field, value));
 	}
 	
+	public void addStringMultypart(String field, String value)
+	{
+		try
+		{
+			addMultipart(field, new StringBody(value));
+		}
+		catch (Exception e) {}
+	}
+	
 	public void addHeader(String name, String value)
 	{
 		httpHeaders.add(new BasicHeader(name, value));
@@ -176,6 +188,8 @@ public class DownloadManager
 		ArrayList<BasicNameValuePair> postLogs = new ArrayList<BasicNameValuePair>();
 		
 		if (postMultipart.size() > 0 || postStrings.size() > 0) method = Method.POST;
+	
+		if (forceMethod != null) method = forceMethod;
 		
 		if (method == Method.GET)
 		{
@@ -191,11 +205,11 @@ public class DownloadManager
 			
 			request = new HttpGet(requestURL);
 		}
-		else 
+		else if (method == Method.POST || method == Method.PUT)
 		{
-			request = new HttpPost(requestURL);
+			request = method == Method.POST ? new HttpPost(requestURL) : new HttpPut(requestURL);
 		
-			HttpPost postRequest = (HttpPost) request;
+			HttpEntityEnclosingRequestBase newRequest = (HttpEntityEnclosingRequestBase) request;
 		
 			if (postMultipart.size() > 0)
 			{
@@ -219,8 +233,8 @@ public class DownloadManager
 					entity.addPart(key, postMultipart.get(key));
 				}
 
-				postRequest.setEntity(entity);
-				postRequest.addHeader("Content-Type", "multipart/form-data; boundary=" + boundary);
+				newRequest.setEntity(entity);
+				newRequest.addHeader("Content-Type", "multipart/form-data; boundary=" + boundary);
 			}
 			else if (postStrings.size() > 0)
 			{
@@ -228,13 +242,18 @@ public class DownloadManager
 				
 				try
 				{
-					postRequest.setEntity(new UrlEncodedFormEntity(postStrings, "UTF-8"));
-					postRequest.addHeader("Content-Type", "application/x-www-form-urlencoded");
+					newRequest.setEntity(new UrlEncodedFormEntity(postStrings, "UTF-8"));
+					newRequest.addHeader("Content-Type", "application/x-www-form-urlencoded");
 				}
 				catch (Exception e) {}
 			}
 		}
-		
+		else if (method == Method.DELETE)
+		{
+			
+		}
+		else throw new IllegalStateException("Method not found!");
+			
 		for (Header header : httpHeaders) request.addHeader(header);
 		
 		int retriesCount = RETRIES;
@@ -282,6 +301,11 @@ public class DownloadManager
 		return length;
 	}
 	
+	public void setMethod(Method method)
+	{
+		this.forceMethod = method;
+	}
+	
 	public static InputStream get(String url)
 	{
 		return get(url, 0, null);
@@ -311,7 +335,7 @@ public class DownloadManager
 	
 	public static enum Method
 	{
-		GET, POST;
+		GET, POST, PUT, DELETE;
 	}
 	
 	public static void initCache(Context context, CacheType type)
