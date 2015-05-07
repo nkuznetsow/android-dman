@@ -87,6 +87,8 @@ public class CacheDatabase extends Cache
 	@Override
 	public void put(String url, byte[] data, int expired) 
 	{
+		remove(url);
+		
 		ContentValues values = new ContentValues();
 		values.put(CacheTable.COLUMN_URL, CManUtils.MD5Hash(url));
 		values.put(CacheTable.COLUMN_CACHEEXPIREDTIME, format.format(new Date(getExpiredTime(expired))));
