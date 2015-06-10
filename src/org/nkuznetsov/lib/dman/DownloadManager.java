@@ -13,7 +13,6 @@ import java.net.URL;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicLong;
-
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
@@ -21,14 +20,13 @@ import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
-
 import org.nkuznetsov.lib.cman.Cache;
 import org.nkuznetsov.lib.dman.multipart.ByteArrayMultipartItem;
 import org.nkuznetsov.lib.dman.multipart.FileMultipartItem;
 import org.nkuznetsov.lib.dman.multipart.MultipartItem;
 import org.nkuznetsov.lib.dman.multipart.StreamMultipartItem;
 import org.nkuznetsov.lib.dman.multipart.StringMultipartItem;
-
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.util.Log;
 
@@ -196,6 +194,10 @@ public class DownloadManager
 					
 					if (postMultipart1.size() > 0)
 					{
+						writer.append(MultipartItem.LINE_FEED);
+						writer.append(MultipartItem.LINE_FEED);
+						writer.flush();
+						
 						for (NameValuePair pair : postStrings)
 						{
 							postLogs.add(pair);
@@ -207,6 +209,9 @@ public class DownloadManager
 							postLogs.add(new NameValuePair(multipartItem.getField(), "[DATA]"));
 							multipartItem.write(os, writer, boundary);
 						}
+						
+						writer.append("--" + boundary + "--");
+						writer.flush();
 					}
 					else if (postStrings.size() > 0)
 					{
@@ -328,6 +333,7 @@ public class DownloadManager
 	static SSLSocketFactory defaultSSlSocketFactory;
 	static HostnameVerifier defaultHostNameVerifier;
 	
+	@SuppressLint("TrulyRandom")
 	public static void acceptAllSertificates(boolean accept)
 	{
 		if (!allSSLAccepter && accept)

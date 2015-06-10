@@ -22,12 +22,14 @@ public abstract class StreamMultipartItem extends MultipartItem
 	public void write(OutputStream os, Writer writer, String boundary) throws IOException
 	{
 		writer
-			.append("--" + boundary).append(LINE_FEED)
+			.append("--" + boundary)
+			.append(LINE_FEED)
 			.append("Content-Disposition: form-data; name=\"" + field + "\"; filename=\"" + filename + "\"")
 			.append(LINE_FEED)
 			.append("Content-Type: " + URLConnection.guessContentTypeFromName(filename))
 			.append(LINE_FEED)
-			.append("Content-Transfer-Encoding: binary").append(LINE_FEED)
+			.append("Content-Transfer-Encoding: binary")
+			.append(LINE_FEED)
 			.append(LINE_FEED)
 			.flush();
 		
