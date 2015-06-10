@@ -4,10 +4,9 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.Writer;
 
-
 public abstract class MultipartItem
 {
-	protected static final String LINE_FEED = "\r\n";
+	public static final String LINE_FEED = "\r\n";
 	
 	protected String field;
 	
