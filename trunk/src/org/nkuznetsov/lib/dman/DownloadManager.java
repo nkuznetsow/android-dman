@@ -43,6 +43,7 @@ public class DownloadManager
 	private Method forceMethod;
 	private String requestURL;
 	
+	private ArrayList<NameValuePair> headers = new ArrayList<NameValuePair>();
 	private ArrayList<NameValuePair> postStrings = new ArrayList<NameValuePair>();
 	private ArrayList<MultipartItem> postMultipart1 = new ArrayList<MultipartItem>();
 	
@@ -59,10 +60,22 @@ public class DownloadManager
 	{
 		this.requestURL = url;
 		this.method = method;
-		
+	}
+	
+	private void initConnection()
+	{
 		try
 		{
-			urlConnection = (HttpURLConnection) new URL(url).openConnection();
+			if (urlConnection != null)
+			{
+				try
+				{
+					urlConnection.disconnect();
+				}
+				catch (Exception e) {}
+			}
+			
+			urlConnection = (HttpURLConnection) new URL(requestURL).openConnection();
 			urlConnection.setReadTimeout(10000);
 			urlConnection.setConnectTimeout(15000);
 			urlConnection.setDoInput(true);
@@ -72,7 +85,7 @@ public class DownloadManager
 			executeException = e;
 		}
 	}
-
+	
 	public String getRequestURL()
 	{
 		return requestURL;
@@ -145,13 +158,11 @@ public class DownloadManager
 	
 	public void addHeader(String name, String value)
 	{
-		urlConnection.addRequestProperty(name, value);
+		headers.add(new NameValuePair(name, value));
 	}
 	
 	public int execute(int cacheTime)
 	{
-		if (executeException != null) return -1;
-		
 		ArrayList<NameValuePair> postLogs = new ArrayList<NameValuePair>();
 		
 		if (postMultipart1.size() > 0 || postStrings.size() > 0) method = Method.POST;
@@ -165,6 +176,13 @@ public class DownloadManager
 		{			
 			try
 			{
+				initConnection();
+				
+				if (executeException != null) return -1;
+				
+				for (NameValuePair header : headers)
+					urlConnection.addRequestProperty(header.getName(), header.getValue());
+				
 				if (method == Method.GET)
 				{
 					if (cache != null)
