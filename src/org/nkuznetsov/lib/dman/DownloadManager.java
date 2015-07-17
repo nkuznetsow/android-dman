@@ -51,6 +51,8 @@ public class DownloadManager
 	private InputStream responseStream;
 	private long length;
 	
+	private int connectionTimeout = 15000, readTimeout = 10000;
+	
 	public DownloadManager(String url)
 	{
 		this(url, Method.GET);
@@ -60,6 +62,16 @@ public class DownloadManager
 	{
 		this.requestURL = url;
 		this.method = method;
+	}
+	
+	public void setConnectionTimeout(int timeout)
+	{
+		connectionTimeout = timeout;
+	}
+	
+	public void setReadTimeout(int timeout)
+	{
+		readTimeout = timeout;
 	}
 	
 	private void initConnection()
@@ -76,8 +88,8 @@ public class DownloadManager
 			}
 			
 			urlConnection = (HttpURLConnection) new URL(requestURL).openConnection();
-			urlConnection.setReadTimeout(10000);
-			urlConnection.setConnectTimeout(15000);
+			urlConnection.setReadTimeout(readTimeout);
+			urlConnection.setConnectTimeout(connectionTimeout);
 			urlConnection.setDoInput(true);
 		}
 		catch (Exception e)
@@ -161,6 +173,11 @@ public class DownloadManager
 		headers.add(new NameValuePair(name, value));
 	}
 	
+	/**
+	 * Execute request
+	 * @param cacheTime ttl of response in cache in seconds
+	 * @return http status code or 0 if content returns from cache or -1 if error occurred
+	 */
 	public int execute(int cacheTime)
 	{
 		ArrayList<NameValuePair> postLogs = new ArrayList<NameValuePair>();
@@ -284,14 +301,26 @@ public class DownloadManager
 		return responseCode;
 	}
 	
+	/**
+	 * Return length of content from response header if available
+	 * @return content length in bytes or -1
+	 */
 	public long getLength()
 	{
 		return length;
 	}
-	
+
 	public void setMethod(Method method)
 	{
 		this.forceMethod = method;
+	}
+	
+	/**
+	 * Remove current response from cache
+	 */
+	public void purgeFromCache()
+	{
+		cache.remove(requestURL);
 	}
 	
 	public static InputStream get(String url) throws MalformedURLException, IOException

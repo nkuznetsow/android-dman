@@ -133,7 +133,7 @@ public class CacheFiles extends Cache implements MountStateReceiverCallback
 			long exp = 0;
 			try
 			{
-				exp = Long.valueOf(name.substring(start));
+				exp = Long.parseLong(name.substring(start));
 			}
 			catch (Exception e) {}
 			long now = new Date().getTime();
