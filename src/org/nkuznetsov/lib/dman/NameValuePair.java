@@ -2,6 +2,7 @@ package org.nkuznetsov.lib.dman;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.util.Collection;
 
 public class NameValuePair
 {
@@ -11,6 +12,25 @@ public class NameValuePair
 	{
 		this.name = name;
 		this.value = value;
+	}
+	
+	public NameValuePair(String name, Collection<String> values)
+	{
+		this.name = name;
+		
+		StringBuilder sb = new StringBuilder();
+		
+		int count = values.size() - 1;
+		int i = 0;
+		
+		for (String value : values)
+		{
+			sb.append(value);
+			if (i < count) sb.append(',');
+			i ++;
+		}
+		
+		this.value = sb.toString();
 	}
 	
 	public String getName()
